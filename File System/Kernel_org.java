@@ -49,6 +49,7 @@ public class Kernel
    private static Scheduler scheduler;
    private static Disk disk;
    private static Cache cache;
+   private static FileSystem fileSystem;
 
    // Synchronized Queues
    private static SyncQueue waitQueue;  // for threads to wait for their child
@@ -184,7 +185,11 @@ public class Kernel
                   return OK;
                case SEEK:    // to be implemented in project
                   return OK;
-               case FORMAT:  // to be implemented in project
+               case FORMAT:  // Formats system disk
+					if(fileSystem.format(param))
+						return OK;
+					else
+						return ERROR;
                   return OK;
                case DELETE:  // to be implemented in project
                   return OK;

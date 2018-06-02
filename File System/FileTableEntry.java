@@ -7,9 +7,9 @@ public class FileTableEntry {  // Each table entry should have
     FileTableEntry ( Inode i, short inumber, String m ) {
 	seekPtr = 0;           // the seek pointer is set to the file top.
 	inode = i;
-        iNumber = inumber;     
-        count = 1;           // at least one thread is using this entry.
-        mode = m;            // once file access mode is set, it never changes.
+	iNumber = inumber;     
+	count = 1;           // at least one thread is using this entry.
+	mode = m;            // once file access mode is set, it never changes.
 
 	if ( mode.compareTo( "a" ) == 0 )
 	    seekPtr = inode.length;
