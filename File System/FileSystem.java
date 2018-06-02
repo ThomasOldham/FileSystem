@@ -43,13 +43,28 @@ public class FileSystem {
 		return true;
 	}
 	
-	FileTableEntry open( String filename, String node) 
+	//open file with mentioned mode
+	FileTableEntry open(String filename, String mode)
 	{
-	}	
-	
-	boolean close(FileTableEntry ftEnt)
+		FileTableEntry input = fileTable.falloc(filename, mode);
+		//checking mode for writeing
+		if (input != null && mode.equals("w"))
+			if(!deallocateAllBlocks(input))
+				input = null;
+		return input;
+	}
+
+	// Closes the file and free the input from the table
+	// decrement the entry count while other threads still hold access to this entry
+	boolean close(FileTableEntry entry)
 	{
-		
+		 synchronized(entry)
+		 {
+			 entry.count--;
+			 if(entry.count > 0)
+				 return true;
+		 }
+		 return fileTable.ffree(entry);
 	}
 	
 	int fsize( FileTableEntry ftEnt)
