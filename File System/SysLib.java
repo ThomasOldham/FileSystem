@@ -1,6 +1,49 @@
 import java.util.*;
 
 public class SysLib {
+	
+	//formats disk, specifiy maximum number of files to be supported by disk
+	public static int format(int maxFiles)
+	{
+		return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE, Kernel.FORMAT, fileCount, null);
+	}
+	
+	//open file with given name in given mode
+	public static int open(String filename, String mode)
+	{
+		
+	}
+	
+	//close file with given file descriptor
+	public static int close(int fd)
+	{
+	}
+	
+	//read from a given file into given buffer
+	public static int read(int fd, byte[] buffer)
+	{
+	}
+	
+	//writes contents from given buffer into given file (file descriptor used to access file)
+	public static int write(int fd, byte[] buffer)
+	{
+	}
+	
+	//moves seek point for given file. whence determines where to start, offset is from given whence
+	public static int seek(int fd, int offset, int whence)
+	{
+	}
+	
+	//removes given file from disk and file system
+	public static int delete(String filename)
+	{
+	}
+	
+	//returns size of given file
+	public static int fsize(int fd)
+	{
+	}
+	
     public static int exec( String args[] ) {
         return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE,
 				 Kernel.EXEC, 0, args );
