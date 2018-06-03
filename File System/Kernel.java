@@ -182,7 +182,7 @@ public class Kernel
                case CFLUSH:  // to be implemented in assignment 4
                   cache.flush( );
                   return OK;
-               case OPEN:    // to be implemented in project
+               case OPEN:	//open file and assign filetable entry to threads file descriptor    
 		  if(myTcb = scheduler.getMyTcb() != null)
 		  {
 			String[] s = ( String[] ) args;
@@ -190,16 +190,44 @@ public class Kernel
 			int fd = myTcb.getFd( entry );
 			return fd;
 		  }
-		  else
-		  {
-			return ERROR;
-		  }     
-               case CLOSE:   // to be implemented in project
-                  return OK;
-               case SIZE:    // to be implemented in project
-                  return OK;
-               case SEEK:    // to be implemented in project
-                  return OK;
+                  return ERROR;    
+               case CLOSE:   //close an open file and update the filetableentry
+                  myTcb = scheduler.getMyTcb(); 
+                  if (myTcb != null)
+                  {
+                     FileTableEntry ftEnt = myTcb.getFtEnt(param);
+                     if (ftEnt != null)
+                     {
+                         if (fs.close(ftEnt)) 
+                         {
+                             return OK; 
+                         }
+                     }
+                  }
+		  return ERROR;
+               case SIZE:    //get the size of a given file
+                  myTcb = scheduler.getMyTcb(); 
+                  if (myTcb != null)
+                  {
+                         FileTableEntry ftEnt = myTcb.getFtEnt(param);
+                         if (ftEnt != null)
+                         {
+                            return fs.fsize(ftEnt); 
+                         }
+                  }
+		  return ERROR;
+               case SEEK:    //Move seekPtr for a filetable entry a given offset
+                  myTcb = scheduler.getMyTcb(); 
+                  if (myTcb != null)		
+                  {
+                         FileTableEntry ftEnt = myTcb.getFtEnt(param);
+                         if (ftEnt != null)
+                         {
+                            int[] temp = (int[]) args; 
+                            return(fs.seek(ftEnt, temp[0], temp[1]));
+                         }
+                  }
+		  return ERROR;
                case FORMAT:  // Formats system disk
 		  if(fileSystem.format(param))
 		  {
@@ -209,8 +237,12 @@ public class Kernel
 		  {
 			return ERROR;
 		  }
-               case DELETE:  // to be implemented in project
-                  return OK;
+               case DELETE:  // delete a file
+                  if (fs.delete((String)args))
+                  {
+                     return OK;
+                  }
+		  return ERROR;
             }
             return ERROR;
          case INTERRUPT_DISK: // Disk interrupts
