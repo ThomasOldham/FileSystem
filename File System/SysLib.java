@@ -17,46 +17,43 @@ public class SysLib {
 		return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE, Kernel.OPEN, 0, args);
 	}
 	
-	//TODO
 	//close file with given file descriptor
 	public static int close(int fd)
 	{
-		return 0;
+		return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE, Kernel.CLOSE, fd, null);
 	}
 	
-	//TODO
 	//read from a given file into given buffer
 	public static int read(int fd, byte[] buffer)
 	{
-		return 0;
+		return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE, Kernel.READ, fd, buffer);
 	}
 	
-	//TODO
 	//writes contents from given buffer into given file (file descriptor used to access file)
 	public static int write(int fd, byte[] buffer)
 	{
-		return 0;
+		 return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE, Kernel.WRITE, fd, buffer );
 	}
 	
-	//TODO
 	//moves seek point for given file. whence determines where to start, offset is from given whence
 	public static int seek(int fd, int offset, int whence)
 	{
-		return 0;
+		String[] args = new String[2];
+		args[0] = offset;
+		args[1] = whence;
+		return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE, Kernel.WRITE, fd, args );
 	}
 	
-	//TODO
 	//removes given file from disk and file system
 	public static int delete(String filename)
 	{
-		return 0;
+		return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE, Kernel.DELETE, 0, fileName);
 	}
 	
-	//TODO
 	//returns size of given file
 	public static int fsize(int fd)
 	{
-		return 0;
+		return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE, Kernel.SIZE, fd, null);
 	}
 	
     public static int exec( String args[] ) {
