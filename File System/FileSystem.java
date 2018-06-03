@@ -62,12 +62,12 @@ public class FileSystem {
 	//open file with mentioned mode
 	public FileTableEntry open(String filename, String mode)
 	{
-		FileTableEntry input = filetable.falloc(filename, mode);
+		FileTableEntry ftEnt = filetable.falloc(filename, mode);
 		//checking mode for writing
-		if (input != null && mode.equals("w"))
-			if(!deallocAllBlocks(input))
-				input = null;
-		return input;
+		if (ftEnt != null && mode.equals("w"))
+			if(!deallocAllBlocks(ftEnt))
+				ftEnt = null;
+		return ftEnt;
 	}
 	
 	private boolean deallocAllBlocks(FileTableEntry entry) {

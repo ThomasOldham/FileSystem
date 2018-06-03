@@ -8,11 +8,13 @@ public class SysLib {
 		return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE, Kernel.FORMAT, maxFiles, null);
 	}
 	
-	//TODO
 	//open file with given name in given mode
 	public static int open(String filename, String mode)
 	{
-		return 0;
+		String[] args = new String[2];
+		args[0] = filename;
+		args[1] = mode;
+		return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE, Kernel.OPEN, 0, args);
 	}
 	
 	//TODO
