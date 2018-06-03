@@ -1,10 +1,17 @@
 
 
 public class FileSystem {
+
+	
+	private final int SEEK_SET = 0;
+	private final int SEEK_CUR = 1;
+	private final int SEEK_END = 2;
+	private final int MAXFILESIZE = (267 * 512) //11 direct, 1 indirect that stores 256 pointers, each pointing to a block of 512 bytes
+
 	private SuperBlock superblock;
 	private Directory directory;
 	private FileTable filetable;
-	private final int MAXFILESIZE = (267 * 512) //11 direct, 1 indirect that stores 256 pointers, each pointing to a block of 512 bytes
+
 	
 	public FileSystem(int diskBlocks)
 	{
@@ -29,8 +36,14 @@ public class FileSystem {
 		close(dirEnt);
 	}
 	
+	//sync the file systems metadata into the disk
 	void sync() 
 	{
+		FileTableEntry ftEntry = open("/", "w");		//read directory from disk
+		byte[] buffer = directory.directory2bytes();
+		write(ftEntry, buffer);
+		close(ftEntry);
+		superblock.sync();					//write superblock back to disk
 	}
 	
 	boolean format( int maxfiles ) 
@@ -70,11 +83,15 @@ public class FileSystem {
 		 return filetable.ffree(entry);
 	}
 	
+	//return the size of the file
 	int fsize( FileTableEntry ftEnt)
 	{
-		return 1;
+		synchronized (ftEnt)
+		{
+			return ftEnt.inode.lenght;
+		}		
 	}
-	
+	//???????????????????????????????????????????????
 	int read (FileTableEntry ftEnt, byte[] buffer )
 	{
 		return 1;
@@ -82,37 +99,111 @@ public class FileSystem {
 
 	int write(FileTableEntry ftEnt, byte[] buffer )
 	{
-		if(freelist == -1 || (buffer.length > (Disk.blockSize * 1000))	//no blocks free or file is too large
+		if(freelist == -1 || (buffer.length > MAXFILESIZE)	//no blocks free or file is too large
 			return -1;
 		
 		synchronized(ftEnt)
 		{
 			int filesize = fsize(ftEnt);
 			int remainingWrite = buffer.length;
+			int bytesWritten;
 			while(remainingWrite > 0)
 			{
-				int blockID = ftEnt;
+				int blockID = ftEnt.inode.findTargetBlock(ftEnt.seekPtr);
 			}
 		}
 
 	}
 
+	
 	private boolean deallocAllBlocks(FileTableEntry ftEnt)
 	{
-		return true;
+		if(ftEnt != null && entry.inode.count == 1)
+		{
+			if(ftEnt.inode.getIndexBlockNumber() != -1) //Take care of blocks in indirect index
+			{
+				byte[] tempBuffer = new byte[Disk.blockSize]; //create temp buffer to store indirect index
+				SysLib.rawread(indirect, tempBuffer);
+				int offset = 0;
+				short tempBlock = SysLib.bytes2Short(tempBuffer, 0);	//Get first block in index
+				while(tempBlock != 1 && offset < Disk.blockSize)
+				{
+					superblock.returnBlock(tempBlock);	//return block to freelist
+					offset += 2;				//move to next short
+					tempBlock = SysLib.bytes2Short(tempBuffer, offset);
+				} 
+				superblock.returnBlock(ftEnt.inode.indirect);	//return the block that stores indirect index
+			}
+			
+			//release the direct blocks
+			for(short i = 0; i < ftEnt.inode.direct.length; i++)
+			{
+				if(ftEnt.inode.direct[i] != -1)	//there is a block in this entry
+				{
+					superblock.returnBlock(ftEnt.inode.direct[i]);
+					ftEnt.inode.direct[i] = -1;
+				}
+			}
+			return true;
+		}
+		return false;
 	}
 
+	//delete the file 
 	boolean delete ( String filename )
 	{
-		return true;
+		short index = directory.namei(filename);		//search the directory and find the inumber associated with this file
+		if(index != -1)						//if the file have been found
+		{
+			Inode tempNode = FileTableEntry.getInode(index);	//retrieving index inode from disk
+			inode.flag = 4;					//flag 4 will be assign for delete
+			if(inode.count ==0)				//if there is no file-table entries
+			{
+				directory.ifree(index);			//deallocates this inumber
+			}
+			return true;
+		}
+
+		return false;
 	}
-	
-	private final int SEEK_SET = 0;
-	private final int SEEK_CUR = 1;
-	private final int SEEK_END = 2;
-	
+
+	//update the seek pointer	
 	int seek (FileTableEntry ftEnt, int offset, int whence)
 	{
-		return 1;
+		if(ftEnt = null)
+		{
+			SysLib.cerr("Invalid File Location");
+			return -1;
+		}
+		
+		synchronized(ftEnt)
+		{
+			//checking the whence situation
+			switch (whence)
+			{
+				case SEEK_END:				//set offset from end of the file
+					if(offset > 0)
+						return -1;
+					ftEnt.seekPtr = fsize(ftEnt) + offset;
+					break;
+				case SEEK_CUR:				//set offset from current position of the file
+					if(ftEnt.seekPtr + offset > fsize(ftEnt))
+						return -1;
+					ftEnt.seekPtr += offset;
+					break;
+				case SEEK_SET:				//set offset from begining of the file
+					if(offset < 0)
+						return -1;				
+					ftEnt.seekPtr = offset;
+					break;
+			}
+			return ftEnd.seekPtr;
+		}
 	}
+
+
+
+
+
+
 }
