@@ -15,4 +15,9 @@ public class FileTableEntry {  // Each table entry should have
 	if ( mode.compareTo( "a" ) == 0 )
 	    seekPtr = inode.length;
     }
+
+    	INode getInode()
+	{
+		return inode;
+	}
 }
