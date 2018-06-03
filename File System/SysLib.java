@@ -8,40 +8,53 @@ public class SysLib {
 		return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE, Kernel.FORMAT, maxFiles, null);
 	}
 	
+	//TODO
 	//open file with given name in given mode
 	public static int open(String filename, String mode)
 	{
-		
+		return 0;
 	}
 	
+	//TODO
 	//close file with given file descriptor
 	public static int close(int fd)
 	{
+		return 0;
 	}
 	
+	//TODO
 	//read from a given file into given buffer
 	public static int read(int fd, byte[] buffer)
 	{
+		return 0;
 	}
 	
+	//TODO
 	//writes contents from given buffer into given file (file descriptor used to access file)
 	public static int write(int fd, byte[] buffer)
 	{
+		return 0;
 	}
 	
+	//TODO
 	//moves seek point for given file. whence determines where to start, offset is from given whence
 	public static int seek(int fd, int offset, int whence)
 	{
+		return 0;
 	}
 	
+	//TODO
 	//removes given file from disk and file system
 	public static int delete(String filename)
 	{
+		return 0;
 	}
 	
+	//TODO
 	//returns size of given file
 	public static int fsize(int fd)
 	{
+		return 0;
 	}
 	
     public static int exec( String args[] ) {
