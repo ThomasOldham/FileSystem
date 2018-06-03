@@ -2,24 +2,26 @@ import java.util.Stack;
 
 public class Directory {
    private final static int MAX_CHARS = 30; // max characters of each file name
+   private final static int INT_SIZE = 4;
    private final static int SHORT_SIZE = 2;
+   private final static int DIRECTORY_ENTRY_SIZE = MAX_CHARS * SHORT_SIZE;
 
    // Directory entries
-   private short fsize[];        // each element stores a different file size.
+   private int fsize[];        // each element stores a different file name size.
    private char fnames[][];    // each element stores a different file name.
-   private Stack<Short> availableFids;
+   private Stack<Short> availableInumbers;
 
    public Directory( int maxInumber ) { // directory constructor
-      fsize = new short[maxInumber];     // maxInumber = max files
+      fsize = new int[maxInumber];     // maxInumber = max files
       for ( short i = 0; i < maxInumber; i++ ) 
          fsize[i] = 0;                 // all file size initialized to 0
       fnames = new char[maxInumber][MAX_CHARS];
       String root = "/";                // entry(inode) 0 is "/"
       fsize[0] = 1;        // fsize[0] is the size of "/".
       root.getChars( 0, fsize[0], fnames[0], 0 ); // fnames[0] includes "/"
-      availableFids = new Stack<Short>();
+      availableInumbers = new Stack<Short>();
       for (short i = 1; i < maxInumber; i++) {
-		availableFids.push(i);
+		availableInumbers.push(i);
 	  }
    }
 
@@ -27,14 +29,14 @@ public class Directory {
       // assumes data[] received directory information from disk
       // initializes the Directory instance with this data[]
       for (short fileNum = 0; fileNum < fsize.length; fileNum++) {
-      	int sizeOffset = fileNum * SHORT_SIZE;
-      	int nameOffset = fsize.length * SHORT_SIZE + fileNum;
-      	fsize[fileNum] = SysLib.bytes2short(data, sizeOffset);
+      	int sizeOffset = fileNum * DIRECTORY_ENTRY_SIZE;
+      	int nameOffset = sizeOffset + INT_SIZE;
+      	fsize[fileNum] = SysLib.bytes2int(data, sizeOffset);
       	if (fsize[fileNum] == 0) {
-      		availableFids.push(fileNum);
+      		availableInumbers.push(fileNum);
       	}
-      	else for (int charNum = 0; charNum < fsize.length; charNum++) {
-      		fnames[fileNum][charNum] = (char)(data[nameOffset + charNum]);
+      	else for (int charNum = 0; charNum < fsize[fileNum]; charNum++) {
+      		fnames[fileNum][charNum] = (char)(SysLib.bytes2short(data, nameOffset + charNum * SHORT_SIZE));
       	}
       }
    }
@@ -46,11 +48,11 @@ public class Directory {
       // into bytes.
       byte[] data = new byte[fsize.length * (SHORT_SIZE + MAX_CHARS)];
       for (int fileNum = 0; fileNum < fsize.length; fileNum++) {
-      	int sizeOffset = fileNum * SHORT_SIZE;
-      	int nameOffset = fsize.length * SHORT_SIZE + fileNum;
-      	SysLib.short2bytes(fsize[fileNum], data, sizeOffset);
-      	for (int charNum = 0; charNum < fsize.length; charNum++) {
-      		data[nameOffset + charNum] = (byte)(fnames[fileNum][charNum]);
+      	int sizeOffset = fileNum * DIRECTORY_ENTRY_SIZE;
+      	int nameOffset = sizeOffset + INT_SIZE;
+      	SysLib.int2bytes(fsize[fileNum], data, sizeOffset);
+      	for (int charNum = 0; charNum < fsize[fileNum]; charNum++) {
+      		SysLib.short2bytes((short)(fnames[fileNum][charNum]), data, nameOffset + charNum * SHORT_SIZE);
       	}
       }
       return data;
@@ -59,13 +61,15 @@ public class Directory {
    public short ialloc( String filename ) {
       // filename is the one of a file to be created.
       // allocates a new inode number for this filename
-      if (availableFids.isEmpty()) {
+      if (availableInumbers.isEmpty()) {
       	return -1;
       }
       else {
-      	short fid = availableFids.pop();
-      	fsize[fid] = 1;
-      	fnames[fid] = filename.toCharArray();
+      	short fid = availableInumbers.pop();
+      	fsize[fid] = filename.length();
+      	for (int i = 0; i < fsize[fid]; i++) {
+      		fnames[fid][i] = filename.charAt(i);
+      	}
       	return fid;
       }
    }
@@ -74,10 +78,10 @@ public class Directory {
    public boolean ifree( short iNumber ) {
       // deallocates this inumber (inode number)
       // the corresponding file will be deleted.
-      boolean deleted = (fsize[iNumber] == 0);
-      fsize[iNumber] = 0;
+      boolean deleted = (fsize[iNumber] != 0);
       if (deleted) {
-      	availableFids.push(iNumber);
+      	fsize[iNumber] = 0;
+      	availableInumbers.push(iNumber);
       }
       return deleted;
    }
@@ -85,8 +89,17 @@ public class Directory {
    public short namei( String filename ) {
       // returns the inumber corresponding to this filename
       for (short i = 0; i < fnames.length; i++) {
-      	if (fnames[i] == filename.toCharArray()) {
-      		return i;
+      	if (fsize[i] != 0) {
+      		boolean match = true;
+      		for (int j = 0; j < filename.length(); j++) {
+      			if (filename.charAt(j) != fnames[i][j]) {
+      				match = false;
+      				break;
+      			}
+      		}
+      		if (match) {
+      			return i;
+      		}
       	}
       }
       return -1;
