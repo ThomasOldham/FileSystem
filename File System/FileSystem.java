@@ -1,7 +1,10 @@
+
+
 public class FileSystem {
 	private SuperBlock superblock;
 	private Directory directory;
 	private FileTable filetable;
+	private final int MAXFILESIZE = (267 * 512) //11 direct, 1 indirect that stores 256 pointers, each pointing to a block of 512 bytes
 	
 	public FileSystem(int diskBlocks)
 	{
@@ -30,14 +33,14 @@ public class FileSystem {
 	{
 	}
 	
-	boolean format( int maxFiles ) 
+	boolean format( int maxfiles ) 
 	{
 		//spin lock
-		while()
+		while(!filetable.fempty())
 		{
 		}
 		
-		superblock.format(maxFiles);
+		superblock.format(maxfiles);
 		directory = new Directory(superblock.totalInodes);
 		filetable = new FileTable(directory);
 		return true;
@@ -46,10 +49,10 @@ public class FileSystem {
 	//open file with mentioned mode
 	FileTableEntry open(String filename, String mode)
 	{
-		FileTableEntry input = fileTable.falloc(filename, mode);
+		FileTableEntry input = filetable.falloc(filename, mode);
 		//checking mode for writeing
 		if (input != null && mode.equals("w"))
-			if(!deallocateAllBlocks(input))
+			if(!deallocAllBlocks(input))
 				input = null;
 		return input;
 	}
@@ -64,24 +67,44 @@ public class FileSystem {
 			 if(entry.count > 0)
 				 return true;
 		 }
-		 return fileTable.ffree(entry);
+		 return filetable.ffree(entry);
 	}
 	
 	int fsize( FileTableEntry ftEnt)
 	{
+		return 1;
 	}
 	
 	int read (FileTableEntry ftEnt, byte[] buffer )
 	{
+		return 1;
 	}
+
 	int write(FileTableEntry ftEnt, byte[] buffer )
 	{
+		if(freelist == -1 || (buffer.length > (Disk.blockSize * 1000))	//no blocks free or file is too large
+			return -1;
+		
+		synchronized(ftEnt)
+		{
+			int filesize = fsize(ftEnt);
+			int remainingWrite = buffer.length;
+			while(remainingWrite > 0)
+			{
+				int blockID = ftEnt;
+			}
+		}
+
 	}
+
 	private boolean deallocAllBlocks(FileTableEntry ftEnt)
 	{
+		return true;
 	}
+
 	boolean delete ( String filename )
 	{
+		return true;
 	}
 	
 	private final int SEEK_SET = 0;
@@ -90,5 +113,6 @@ public class FileSystem {
 	
 	int seek (FileTableEntry ftEnt, int offset, int whence)
 	{
+		return 1;
 	}
 }
