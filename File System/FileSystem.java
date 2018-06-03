@@ -36,8 +36,14 @@ public class FileSystem {
 		markedForDeletion = new HashSet<Short>();
 	}
 	
-	public void sync() 
+	//sync the file systems metadata into the disk
+	void sync() 
 	{
+		FileTableEntry ftEntry = open("/", "w");		//read directory from disk
+		byte[] buffer = directory.directory2bytes();
+		write(ftEntry, buffer);
+		close(ftEntry);
+		superblock.sync();					//write superblock back to disk
 	}
 	
 	public boolean format( int maxfiles ) 
@@ -70,23 +76,26 @@ public class FileSystem {
 
 	// Closes the file and free the input from the table
 	// decrement the entry count while other threads still hold access to this entry
-	public boolean close(FileTableEntry entry)
+	public boolean close(FileTableEntry ftEnt)
 	{
-		 synchronized(entry) {
-			 entry.count--;
-			 if (markedForDeletion.contains(entry.iNumber) && entry.count == 0) {
-		 		deallocate(entry.inode, entry.iNumber);
+		 synchronized(ftEnt) {
+			 ftEnt.count--;
+			 if (markedForDeletion.contains(ftEnt.iNumber) && ftEnt.count == 0) {
+		 		deallocate(ftEnt.inode, ftEnt.iNumber);
 		 	 }
-			 if(entry.count > 0) {
+			 if(ftEnt.count > 0) {
 				 return true;
 			 }
 		 }
-		 return filetable.ffree(entry);
+		 return filetable.ffree(ftEnt);
 	}
 	
 	public int fsize( FileTableEntry ftEnt)
 	{
-		return ftEnt.inode.length;
+		synchronized (ftEnt)
+		{
+			return ftEnt.inode.length;
+		}
 	}
 	
 	public int read (FileTableEntry ftEnt, byte[] buffer )
