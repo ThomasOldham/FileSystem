@@ -16,7 +16,7 @@ public class FileTableEntry {  // Each table entry should have
 	    seekPtr = inode.length;
     }
 
-    	INode getInode()
+    	public INode getInode()
 	{
 		return inode;
 	}
