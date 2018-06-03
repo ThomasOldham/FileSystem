@@ -5,7 +5,7 @@ public class SysLib {
 	//formats disk, specifiy maximum number of files to be supported by disk
 	public static int format(int maxFiles)
 	{
-		return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE, Kernel.FORMAT, fileCount, null);
+		return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE, Kernel.FORMAT, maxFiles, null);
 	}
 	
 	//open file with given name in given mode
