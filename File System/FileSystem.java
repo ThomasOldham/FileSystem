@@ -1,17 +1,16 @@
-
+import java.util.Set;
+import java.util.HashSet;
 
 public class FileSystem {
-
-	
-	private final int SEEK_SET = 0;
-	private final int SEEK_CUR = 1;
-	private final int SEEK_END = 2;
-	private final int MAXFILESIZE = (267 * 512) //11 direct, 1 indirect that stores 256 pointers, each pointing to a block of 512 bytes
-
 	private SuperBlock superblock;
 	private Directory directory;
 	private FileTable filetable;
-
+	private Set<Short> markedForDeletion;
+	
+	private final static int BLOCK_SIZE = 512;
+	private static final int DIRECT = 11;
+	private final static int SHORT_SIZE = 2;
+	public final static int MAX_FILE_SIZE = (DIRECT + BLOCK_SIZE / SHORT_SIZE) * BLOCK_SIZE; //11 direct, 1 indirect that stores 256 pointers, each pointing to a block of 512 bytes, public because someone might want to implement a feature that needs to know the max file size, and it makes sense to allow that feature to get the number from the file system
 	
 	public FileSystem(int diskBlocks)
 	{
@@ -34,19 +33,14 @@ public class FileSystem {
 			directory.bytes2directory( dirData );
 		}
 		close(dirEnt);
+		markedForDeletion = new HashSet<Short>();
 	}
 	
-	//sync the file systems metadata into the disk
-	void sync() 
+	public void sync() 
 	{
-		FileTableEntry ftEntry = open("/", "w");		//read directory from disk
-		byte[] buffer = directory.directory2bytes();
-		write(ftEntry, buffer);
-		close(ftEntry);
-		superblock.sync();					//write superblock back to disk
 	}
 	
-	boolean format( int maxfiles ) 
+	public boolean format( int maxfiles ) 
 	{
 		//spin lock
 		while(!filetable.fempty())
@@ -60,138 +54,232 @@ public class FileSystem {
 	}
 	
 	//open file with mentioned mode
-	FileTableEntry open(String filename, String mode)
+	public FileTableEntry open(String filename, String mode)
 	{
 		FileTableEntry input = filetable.falloc(filename, mode);
-		//checking mode for writeing
+		//checking mode for writing
 		if (input != null && mode.equals("w"))
 			if(!deallocAllBlocks(input))
 				input = null;
 		return input;
 	}
+	
+	private boolean deallocAllBlocks(FileTableEntry entry) {
+		return changeSize(entry.inode, entry.inode.length, 0);
+	}
 
 	// Closes the file and free the input from the table
 	// decrement the entry count while other threads still hold access to this entry
-	boolean close(FileTableEntry entry)
+	public boolean close(FileTableEntry entry)
 	{
-		 synchronized(entry)
-		 {
+		 synchronized(entry) {
 			 entry.count--;
-			 if(entry.count > 0)
+			 if (markedForDeletion.contains(entry.iNumber) && entry.count == 0) {
+		 		deallocate(entry.inode, entry.iNumber);
+		 	 }
+			 if(entry.count > 0) {
 				 return true;
+			 }
 		 }
 		 return filetable.ffree(entry);
 	}
 	
-	//return the size of the file
-	int fsize( FileTableEntry ftEnt)
+	public int fsize( FileTableEntry ftEnt)
 	{
-		synchronized (ftEnt)
-		{
-			return ftEnt.inode.lenght;
-		}		
+		return ftEnt.inode.length;
 	}
-
-	//???????????????????????????????????????????????
-	int read (FileTableEntry ftEnt, byte[] buffer )
-	{
-		return 1;
-	}
-
-	int write(FileTableEntry ftEnt, byte[] buffer )
-	{
-
-	}
-
 	
-	private boolean deallocAllBlocks(FileTableEntry ftEnt)
+	public int read (FileTableEntry ftEnt, byte[] buffer )
 	{
-		if(ftEnt != null && entry.inode.count == 1)
-		{
-			if(ftEnt.inode.getIndexBlockNumber() != -1) //Take care of blocks in indirect index
-			{
-				byte[] tempBuffer = new byte[Disk.blockSize]; //create temp buffer to store indirect index
-				SysLib.rawread(indirect, tempBuffer);
-				int offset = 0;
-				short tempBlock = SysLib.bytes2Short(tempBuffer, 0);	//Get first block in index
-				while(tempBlock != 1 && offset < Disk.blockSize)
-				{
-					superblock.returnBlock(tempBlock);	//return block to freelist
-					offset += 2;				//move to next short
-					tempBlock = SysLib.bytes2Short(tempBuffer, offset);
-				} 
-				superblock.returnBlock(ftEnt.inode.indirect);	//return the block that stores indirect index
+		int seekPtr = ftEnt.seekPtr;
+		int blockIndex = seekPtr / BLOCK_SIZE;
+		byte[] indirectBlock = null;
+		if (seekPtr + buffer.length > DIRECT * BLOCK_SIZE) {
+			indirectBlock = new byte[BLOCK_SIZE];
+			SysLib.cread(ftEnt.inode.indirect, indirectBlock);
+		}
+		int blockNumber = getBlockNumber(ftEnt.inode, blockIndex, indirectBlock);
+		byte[] contentBlock = new byte[BLOCK_SIZE];
+		SysLib.cread(blockNumber, contentBlock);
+		int lengthRead = buffer.length;
+		if (ftEnt.inode.length - seekPtr < lengthRead) {
+			lengthRead = ftEnt.inode.length - seekPtr;
+		}
+		for (int i = 0; i < lengthRead; i++) {
+			buffer[i] = contentBlock[(seekPtr + i) % BLOCK_SIZE];
+			if ((seekPtr + i) % BLOCK_SIZE == 0 && i != buffer.length - 1) {
+				blockIndex++;
+				blockNumber = getBlockNumber(ftEnt.inode, blockIndex, indirectBlock);
+				SysLib.cread(blockNumber, contentBlock);
 			}
-			
-			//release the direct blocks
-			for(short i = 0; i < ftEnt.inode.direct.length; i++)
-			{
-				if(ftEnt.inode.direct[i] != -1)	//there is a block in this entry
-				{
-					superblock.returnBlock(ftEnt.inode.direct[i]);
-					ftEnt.inode.direct[i] = -1;
+		}
+		ftEnt.seekPtr += lengthRead;
+		return lengthRead;
+	}
+
+	public int write(FileTableEntry ftEnt, byte[] buffer )
+	{
+		int seekPtr = ftEnt.seekPtr;
+		int blockIndex = seekPtr / BLOCK_SIZE;
+		byte[] indirectBlock = null;
+		if (seekPtr + buffer.length > DIRECT * BLOCK_SIZE) {
+			indirectBlock = new byte[BLOCK_SIZE];
+			SysLib.cread(ftEnt.inode.indirect, indirectBlock);
+		}
+		int blockNumber = getBlockNumber(ftEnt.inode, blockIndex, indirectBlock);
+		byte[] contentBlock = new byte[BLOCK_SIZE];
+		int lengthWritten = buffer.length;
+		synchronized (ftEnt) {
+			if (seekPtr % BLOCK_SIZE != 0) {
+				SysLib.cread(blockNumber, contentBlock);
+			}
+			if (MAX_FILE_SIZE - seekPtr < lengthWritten) {
+				lengthWritten = MAX_FILE_SIZE - seekPtr;
+			}
+			if (seekPtr + lengthWritten > ftEnt.inode.length) {
+				if (!changeSize(ftEnt.inode, ftEnt.inode.length, seekPtr + lengthWritten)) {
+					return -1; // not enough space on disk
 				}
 			}
+			for (int i = 0; i < lengthWritten; i++) {
+				contentBlock[(seekPtr + i) % BLOCK_SIZE] = buffer[i];
+				if ((seekPtr + i) % BLOCK_SIZE == 0 && i != buffer.length - 1) {
+					SysLib.cwrite(blockNumber, contentBlock);
+					blockIndex++;
+					blockNumber = getBlockNumber(ftEnt.inode, blockIndex, indirectBlock);
+					if (lengthWritten - i < BLOCK_SIZE) { // if the loop will end before writing the whole block
+						SysLib.cread(blockNumber, contentBlock);
+					}
+				}
+			}
+			SysLib.cwrite(blockNumber, contentBlock);
+		}
+		ftEnt.seekPtr += lengthWritten;
+		return lengthWritten;
+	}
+
+	public boolean delete ( String filename )
+	{
+		short inumber = directory.namei(filename);
+		Inode inode = new Inode(inumber);
+		boolean exists = (inode.flag != 0);
+		if (exists) {
+			if (inode.count == 0) {
+				deallocate(inode, inumber);
+			}
+			else {
+				if (markedForDeletion.contains(inumber)) {
+					return false;
+				}
+				else {
+					markedForDeletion.add(inumber);
+				}
+			}
+		}
+		return exists;
+	}
+	
+	private final int SEEK_SET = 0;
+	private final int SEEK_CUR = 1;
+	private final int SEEK_END = 2;
+	
+	public int seek (FileTableEntry ftEnt, int offset, int whence)
+	{
+		int tempSeek = ftEnt.seekPtr;
+		if (whence == SEEK_SET) {
+			tempSeek = offset;
+		}
+		else if (whence == SEEK_CUR) {
+			tempSeek += offset;
+		}
+		else if (whence == SEEK_END) {
+			tempSeek = ftEnt.inode.length + offset;
+		}
+		else {
+			throw new IllegalArgumentException();
+		}
+		if (tempSeek < 0 || tempSeek > ftEnt.inode.length) {
+			throw new IllegalArgumentException();
+		}
+		ftEnt.seekPtr = tempSeek;
+		return ftEnt.seekPtr;
+	}
+	
+	private void deallocate(Inode inode, short inumber) {
+		changeSize(inode, inode.length, 0);
+		inode.flag = 0;
+		// Clearing the flag after changing the size (as opposed to before), should prevent a race condition. I think.
+		inode.toDisk(inumber);
+	}
+	
+	// Resizes a file. Returns true if successful.
+	private boolean changeSize(Inode inode, int bytesBefore, int bytesAfter) {
+		if (bytesAfter > MAX_FILE_SIZE) {
+			return false;
+		}
+		int blocksBefore = neededBlocks(bytesBefore);
+		int blocksAfter = neededBlocks(bytesAfter);
+		if (blocksBefore == blocksAfter) {
 			return true;
 		}
-		return false;
-	}
-
-	//delete the file 
-	boolean delete ( String filename )
-	{
-		short index = directory.namei(filename);		//search the directory and find the inumber associated with this file
-		if(index != -1)						//if the file have been found
-		{
-			Inode tempNode = FileTable.getInode(index);	//retrieving index inode from disk
-			tempNode.flag = 4;					//flag 4 will be assign for delete
-			if(tempNode.count == 0)				//if there is no file-table entries
-			{
-				directory.ifree(index);			//deallocates this inumber
+		byte[] buffer = null;
+		if (blocksBefore > DIRECT || blocksAfter > DIRECT) {
+			// Only do a read if we care about the indirect block
+			buffer = new byte[BLOCK_SIZE];
+			SysLib.cread(inode.indirect, buffer);
+		}
+		if (blocksBefore < blocksAfter) {
+			for (int i = blocksBefore; i < blocksAfter; i++) {
+				deallocateBlock(inode, i, buffer);
 			}
-			return true;
-		}
-
-		return false;
-	}
-
-	//update the seek pointer	
-	int seek (FileTableEntry ftEnt, int offset, int whence)
-	{
-		if(ftEnt = null)
-		{
-			SysLib.cerr("Invalid File Location");
-			return -1;
-		}
-		
-		synchronized(ftEnt)
-		{
-			//checking the whence situation
-			switch (whence)
-			{
-				case SEEK_END:				//set offset from end of the file
-					if(offset > 0)
-						return -1;
-					ftEnt.seekPtr = fsize(ftEnt) + offset;
-					break;
-				case SEEK_CUR:				//set offset from current position of the file
-					if(ftEnt.seekPtr + offset > fsize(ftEnt))
-						return -1;
-					ftEnt.seekPtr += offset;
-					break;
-				case SEEK_SET:				//set offset from begining of the file
-					if(offset < 0)
-						return -1;				
-					ftEnt.seekPtr = offset;
-					break;
+			if (blocksAfter > DIRECT) {
+				SysLib.cwrite(inode.indirect, buffer);
 			}
-			return ftEnd.seekPtr;
+		}
+		else {
+			assert (blocksAfter < blocksBefore);
+			for (int i = blocksAfter; i < blocksBefore; i++) {
+				allocateBlock(inode, i, buffer);
+			}
+		}
+		inode.length = bytesAfter;
+		return true;
+	}
+	
+	private void deallocateBlock(Inode inode, int blockIndex, byte[] indirectBlock) {
+		superblock.returnBlock(getBlockNumber(inode, blockIndex, indirectBlock));
+	}
+	
+	private void allocateBlock(Inode inode, int blockIndex, byte[] indirectBlock) {
+		setBlockNumber(superblock.getBlock(), inode, blockIndex, indirectBlock);
+	}
+	
+	private static short getBlockNumber(Inode inode, int blockIndex, byte[] indirectBlock) {
+		if (blockIndex < DIRECT) {
+			return inode.direct[blockIndex];
+		}
+		else {
+			int offset = (blockIndex - DIRECT) * SHORT_SIZE;
+			return SysLib.bytes2short(indirectBlock, offset);
 		}
 	}
-
-
-
-
-
-
+	
+	private static void setBlockNumber(short blockNumber, Inode inode, int blockIndex, byte[] indirectBlock) {
+		if (blockIndex < DIRECT) {
+			inode.direct[blockIndex] = blockNumber;
+		}
+		else {
+			int offset = (blockIndex - DIRECT) * SHORT_SIZE;
+			SysLib.short2bytes(blockNumber, indirectBlock, offset);
+		}
+	}
+	
+	// Gets the number of blocks needed to store a file of given number of bytes
+	private static int neededBlocks(int bytes) {
+		int ret = bytes / BLOCK_SIZE;
+		if (bytes % BLOCK_SIZE != 0) {
+			ret++;
+		}
+		return ret;
+	}
 }

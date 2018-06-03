@@ -18,12 +18,12 @@ public class FileTable {
       // immediately write back this inode to the disk
       // return a reference to this file (structure) table entry
       
-      short inumber = dir.namei(filename);
-      Inode inode = new Inode(inumber);
-      inode.count++;
-      inode.toDisk(inumber);
-      FileTableEntry entry = new FileTableEntry(inode, inumber, filename);
-      table.add(entry);
+	  short inumber = dir.namei(filename);
+	  Inode inode = new Inode(inumber);
+	  inode.count++;
+	  inode.toDisk(inumber);
+	  FileTableEntry entry = new FileTableEntry(inode, inumber, filename);
+	  table.add(entry);
       return entry;
    }
 
@@ -49,17 +49,4 @@ public class FileTable {
    public synchronized boolean fempty( ) {
       return table.isEmpty( );  // return if table is empty 
    }                            // should be called before starting a format
-
-	public synchronized Inode getInode(int inumber)
-	{
-		for(int i =0; i< table.length; i++)
-		{
-			FileTableEntry temp = table.elementAt(i);
-			if(inumber == temp.iNumber)
-			{
-				return temp.getInode();
-			}
-		}
-		return null;
-	}
 }

@@ -1,6 +1,6 @@
 public class SuperBlock 
 {
-	private final int defaultInodeBlocks = 64;
+	private final static int defaultInodeBlocks = 64;
 	public int totalBlocks; // the number of disk blocks
 	public int totalInodes; // the number of inodes
 	public short freeList;    // the block number of the free list's head
@@ -12,7 +12,7 @@ public class SuperBlock
 		SysLib.rawread(0, superBlock );
 		totalBlocks = SysLib.bytes2int( superBlock, 0 );
 		totalInodes = SysLib.bytes2int( superBlock, 4 );
-		freeList = SysLib.bytes2int( superBlock, 8 );
+		freeList = SysLib.bytes2short(superBlock, (short)(8));
 		
 		if( totalBlocks == diskSize && totalInodes > 0 && freeList >= 2 )
 			return;
@@ -29,10 +29,10 @@ public class SuperBlock
 	{
 		totalBlocks = 1000;
 		totalInodes = fileMax;
-		freeList = (fileMax / 16) + 1;	//Possibly should be plus 2
+		freeList = (short)(fileMax / 16 + 1);	//Possibly should be plus 2
 		
 		// allocate inodes
-		for (int i = 0; i < totalInodes; i++)
+		for (short i = 0; i < totalInodes; i++)
 		{
 			Inode node = new Inode();
 			node.flag = 0;
@@ -47,12 +47,12 @@ public class SuperBlock
 		{
 			// get the block from disk
 			SysLib.rawread(i, tempBuffer);
-			SysLib.short2bytes(i+1, tempBuffer, 0);
+			SysLib.short2bytes((short)(i+1), tempBuffer, 0);
 			SysLib.rawwrite(i, tempBuffer);
 		}
 
 		// The last block has -1 as pointer as it is the last free block on the disk
-		SysLib.short2bytes(-1, tempBuffer, 0);
+		SysLib.short2bytes((short)(-1), tempBuffer, 0);
 		SysLib.rawwrite(totalBlocks - 1, tempBuffer);
 
 		//write the formatted superBlock into the disk				
@@ -85,9 +85,9 @@ public class SuperBlock
 	}
 	
 	//Add the given block ID back to the list of free blocks
-	boolean returnBlock(int blockID)
+	boolean returnBlock(short blockID)
 	{
-		if(blockID < totalBlocks && blockID > ((totalInodes/16)+1))
+		if (blockID < totalBlocks && blockID > ((totalInodes/16)+1))
 		{
 			byte[] tempBuffer = new byte[Disk.blockSize]; // used to add freeList information to added block
 			if(freeList == -1) // freeList is empty
