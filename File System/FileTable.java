@@ -49,4 +49,17 @@ public class FileTable {
    public synchronized boolean fempty( ) {
       return table.isEmpty( );  // return if table is empty 
    }                            // should be called before starting a format
+
+	public synchronized Inode getInode(int inumber)
+	{
+		for(int i =0; i< table.length; i++)
+		{
+			FileTableEntry temp = table.elementAt(i);
+			if(inumber == temp.iNumber)
+			{
+				return temp.getInode();
+			}
+		}
+		return null;
+	}
 }

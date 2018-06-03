@@ -91,6 +91,7 @@ public class FileSystem {
 			return ftEnt.inode.lenght;
 		}		
 	}
+
 	//???????????????????????????????????????????????
 	int read (FileTableEntry ftEnt, byte[] buffer )
 	{
@@ -99,19 +100,6 @@ public class FileSystem {
 
 	int write(FileTableEntry ftEnt, byte[] buffer )
 	{
-		if(freelist == -1 || (buffer.length > MAXFILESIZE)	//no blocks free or file is too large
-			return -1;
-		
-		synchronized(ftEnt)
-		{
-			int filesize = fsize(ftEnt);
-			int remainingWrite = buffer.length;
-			int bytesWritten;
-			while(remainingWrite > 0)
-			{
-				int blockID = ftEnt.inode.findTargetBlock(ftEnt.seekPtr);
-			}
-		}
 
 	}
 
@@ -155,9 +143,9 @@ public class FileSystem {
 		short index = directory.namei(filename);		//search the directory and find the inumber associated with this file
 		if(index != -1)						//if the file have been found
 		{
-			Inode tempNode = FileTableEntry.getInode(index);	//retrieving index inode from disk
-			inode.flag = 4;					//flag 4 will be assign for delete
-			if(inode.count ==0)				//if there is no file-table entries
+			Inode tempNode = FileTable.getInode(index);	//retrieving index inode from disk
+			tempNode.flag = 4;					//flag 4 will be assign for delete
+			if(tempNode.count == 0)				//if there is no file-table entries
 			{
 				directory.ifree(index);			//deallocates this inumber
 			}
