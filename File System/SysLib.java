@@ -42,7 +42,7 @@ public class SysLib {
 		int[] args = new int[2];
 		args[0] = offset;
 		args[1] = whence;
-		return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE, Kernel.WRITE, fd, args );
+		return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE, Kernel.SEEK, fd, args );
 	}
 	
 	//removes given file from disk and file system

@@ -4,11 +4,14 @@ public class FileTable {
 
    private Vector<FileTableEntry> table;         // the actual entity of this file table
    private Directory dir;        // the root directory 
+   private int nextEntryId;
 
    public FileTable( Directory directory ) { // constructor
       table = new Vector<FileTableEntry>();     // instantiate a file (structure) table
       dir = directory;           // receive a reference to the Director
-   }                             // from the file system
+                                 // from the file system
+      nextEntryId = 0;
+   }
 
    // major public methods
    public synchronized FileTableEntry falloc( String filename, String mode ) {
@@ -27,6 +30,7 @@ public class FileTable {
 	  inode.count++;
 	  inode.toDisk(inumber);
 	  FileTableEntry entry = new FileTableEntry(inode, inumber, filename);
+	  entry.id = nextEntryId++;
 	  table.add(entry);
       return entry;
    }
@@ -53,4 +57,13 @@ public class FileTable {
    public synchronized boolean fempty( ) {
       return table.isEmpty( );  // return if table is empty 
    }                            // should be called before starting a format
+   
+   public boolean contains(FileTableEntry e) {
+   		for (FileTableEntry entry : table) {
+   			if (e.id == entry.id) {
+   				return true;
+   			}
+   		}
+   		return false;
+   }
 }

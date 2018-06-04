@@ -14,22 +14,22 @@ public class FileSystem {
 	
 		public FileSystem(int diskBlocks)
 	{
-		SysLib.cerr("Initializing FileSystem");
+		//SysLib.cerr("Initializing FileSystem");
 
 		// create superblock, and format disk with 64 inodes in default
 		superblock = new SuperBlock(diskBlocks);
 
-		SysLib.cerr("Superblock created.\n");
+		//SysLib.cerr("Superblock created.\n");
 
 		// create directory and register / in directory entry 0
 		directory = new Directory(superblock.totalInodes);
 
-		SysLib.cerr("Directory created.\n");
+		//SysLib.cerr("Directory created.\n");
 
 		//file table is created and store directory in the file table
 		filetable = new FileTable(directory);
 
-		SysLib.cerr("Filetable created.\n");
+		//SysLib.cerr("Filetable created.\n");
 
 		//directory reconstruction
 		FileTableEntry dirEnt = open( "/", "r");
@@ -72,9 +72,16 @@ public class FileSystem {
 	{
 		FileTableEntry ftEnt = filetable.falloc(filename, mode);
 		//checking mode for writing
-		if (ftEnt != null && mode.equals("w"))
-			if(!deallocAllBlocks(ftEnt))
-				ftEnt = null;
+		if (ftEnt != null) {
+			if (mode.equals("w")) {
+				if(!deallocAllBlocks(ftEnt)) {
+					ftEnt = null;
+				}
+			}
+			else if (mode.equals("a")) {
+				ftEnt.seekPtr = ftEnt.inode.length;
+			}
+		}
 		return ftEnt;
 	}
 	
@@ -108,6 +115,10 @@ public class FileSystem {
 	
 	public int read (FileTableEntry ftEnt, byte[] buffer )
 	{
+		if (!(filetable.contains(ftEnt))) {
+			return 0;
+		}
+		//SysLib.cerr("Attempting to read " + buffer.length + " bytes from " + ftEnt.inode.length + "-byte file, starting from " + ftEnt.seekPtr);
 		int seekPtr = ftEnt.seekPtr;
 		int blockIndex = seekPtr / BLOCK_SIZE;
 		byte[] indirectBlock = null;
@@ -124,7 +135,7 @@ public class FileSystem {
 		}
 		for (int i = 0; i < lengthRead; i++) {
 			buffer[i] = contentBlock[(seekPtr + i) % BLOCK_SIZE];
-			if ((seekPtr + i) % BLOCK_SIZE == 0 && i != buffer.length - 1) {
+			if ((seekPtr + i) % BLOCK_SIZE == BLOCK_SIZE - 1 && i != buffer.length - 1) {
 				blockIndex++;
 				blockNumber = getBlockNumber(ftEnt.inode, blockIndex, indirectBlock);
 				SysLib.cread(blockNumber, contentBlock);
@@ -136,6 +147,9 @@ public class FileSystem {
 
 	public int write(FileTableEntry ftEnt, byte[] buffer )
 	{
+		if (!(filetable.contains(ftEnt))) {
+			return 0;
+		}
 		int seekPtr = ftEnt.seekPtr;
 		int blockIndex = seekPtr / BLOCK_SIZE;
 		byte[] indirectBlock = null;
@@ -149,7 +163,7 @@ public class FileSystem {
 		int lengthWritten = buffer.length;
 		synchronized (ftEnt) {
 			if (seekPtr + lengthWritten > ftEnt.inode.length) {
-				SysLib.cerr("Inside the change size if statement");
+				//SysLib.cerr("Inside the change size if statement");
 				if (!changeSize(ftEnt.inode, ftEnt.inode.length, seekPtr + lengthWritten)) {
 					return -1; // not enough space on disk
 				}
@@ -161,17 +175,17 @@ public class FileSystem {
 			if (MAX_FILE_SIZE - seekPtr < lengthWritten) {
 				lengthWritten = MAX_FILE_SIZE - seekPtr;
 			}
-			SysLib.cerr("\nWriting " + Integer.toString(lengthWritten) + " bytes");
+			//SysLib.cerr("\nWriting " + Integer.toString(lengthWritten) + " bytes");
 			for (int i = 0; i < lengthWritten; i++) {
 				contentBlock[(seekPtr + i) % BLOCK_SIZE] = buffer[i];
 				if ((seekPtr + i) % BLOCK_SIZE == BLOCK_SIZE - 1 && i != buffer.length - 1) {
-					SysLib.cerr("\nChanging blocks at i=" + Integer.toString(i));
-					SysLib.cerr("\ncurrent block number for write: " + Integer.toString(blockNumber));
+					//SysLib.cerr("\nChanging blocks at i=" + Integer.toString(i));
+					//SysLib.cerr("\ncurrent block number for write: " + Integer.toString(blockNumber));
 					SysLib.cwrite(blockNumber, contentBlock);
 					blockIndex++;
 					blockNumber = getBlockNumber(ftEnt.inode, blockIndex, indirectBlock);
 					if (lengthWritten - i < BLOCK_SIZE) { // if the loop will end before writing the whole block
-						SysLib.cerr("\ncurrent block number for write: " + Integer.toString(blockNumber));
+						//SysLib.cerr("\ncurrent block number for write: " + Integer.toString(blockNumber));
 						SysLib.cread(blockNumber, contentBlock);
 					}
 				}
@@ -179,6 +193,7 @@ public class FileSystem {
 			SysLib.cwrite(blockNumber, contentBlock);
 		}
 		ftEnt.seekPtr += lengthWritten;
+		ftEnt.inode.toDisk(ftEnt.iNumber);
 		return lengthWritten;
 	}
 
@@ -238,18 +253,19 @@ public class FileSystem {
 	
 	// Resizes a file. Returns true if successful.
 	private boolean changeSize(Inode inode, int bytesBefore, int bytesAfter) {
-		SysLib.cerr("\nChanging size from " + Integer.toString(bytesBefore) + " to " + Integer.toString(bytesAfter));
-		SysLib.cerr("\nDirect pointers before:");
-		for (int i = 0; i < DIRECT; i++) {
+		//SysLib.cerr("\nChanging size from " + Integer.toString(bytesBefore) + " to " + Integer.toString(bytesAfter));
+		//SysLib.cerr("\nDirect pointers before:");
+		/*for (int i = 0; i < DIRECT; i++) {
 			SysLib.cerr(" " + Integer.toString(inode.direct[i]));
-		}
+		}*/
 		if (bytesAfter > MAX_FILE_SIZE) {
 			return false;
 		}
 		int blocksBefore = neededBlocks(bytesBefore);
 		int blocksAfter = neededBlocks(bytesAfter);
-		SysLib.cerr("\nChanging number of blocks from " + Integer.toString(blocksBefore) + " to " + Integer.toString(blocksAfter));
+		//SysLib.cerr("\nChanging number of blocks from " + Integer.toString(blocksBefore) + " to " + Integer.toString(blocksAfter));
 		if (blocksBefore == blocksAfter) {
+			inode.length = bytesAfter;
 			return true;
 		}
 		byte[] buffer = null;
@@ -259,7 +275,7 @@ public class FileSystem {
 			SysLib.cread(inode.indirect, buffer);
 		}
 		if (blocksBefore > blocksAfter) {
-			SysLib.cerr("\nDecreasing size...");
+			//SysLib.cerr("\nDecreasing size...");
 			for (int i = blocksAfter; i < blocksBefore; i++) {
 				deallocateBlock(inode, i, buffer);
 			}
@@ -269,15 +285,15 @@ public class FileSystem {
 		}
 		else {
 			assert (blocksAfter > blocksBefore);
-			SysLib.cerr("\nIncreasing size...");
+			//SysLib.cerr("\nIncreasing size...");
 			for (int i = blocksBefore; i < blocksAfter; i++) {
 				allocateBlock(inode, i, buffer);
 			}
 		}
-		SysLib.cerr("\nDirect pointers after:");
-		for (int i = 0; i < DIRECT; i++) {
+		//SysLib.cerr("\nDirect pointers after:");
+		/*for (int i = 0; i < DIRECT; i++) {
 			SysLib.cerr(" " + Integer.toString(inode.direct[i]));
-		}
+		}*/
 		inode.length = bytesAfter;
 		return true;
 	}
@@ -288,19 +304,19 @@ public class FileSystem {
 	
 	private void allocateBlock(Inode inode, int blockIndex, byte[] indirectBlock) {
 		short blockNumber = (short)superblock.getBlock();
-		SysLib.cerr("\nPointing index " + Integer.toString(blockIndex) + " to block " + Short.toString(blockNumber));
+		//SysLib.cerr("\nPointing index " + Integer.toString(blockIndex) + " to block " + Short.toString(blockNumber));
 		setBlockNumber(blockNumber, inode, blockIndex, indirectBlock);
 	}
 	
 	private static short getBlockNumber(Inode inode, int blockIndex, byte[] indirectBlock) {
-		SysLib.cerr("\nblockIndex: " + Integer.toString(blockIndex));
+		//SysLib.cerr("\nblockIndex: " + Integer.toString(blockIndex));
 		if (blockIndex < DIRECT) {
-			SysLib.cerr(", blockNumber: " + Integer.toString(inode.direct[blockIndex]));
+			//SysLib.cerr(", blockNumber: " + Integer.toString(inode.direct[blockIndex]));
 			return inode.direct[blockIndex];
 		}
 		else {
 			int offset = (blockIndex - DIRECT) * SHORT_SIZE;
-			SysLib.cerr(", blockNumber: " + Integer.toString(SysLib.bytes2short(indirectBlock, offset)));
+			//SysLib.cerr(", blockNumber: " + Integer.toString(SysLib.bytes2short(indirectBlock, offset)));
 			return SysLib.bytes2short(indirectBlock, offset);
 		}
 	}

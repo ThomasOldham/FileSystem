@@ -157,9 +157,12 @@ public class Kernel
                      case STDERR:
                         System.out.println( "threaOS: caused read errors" );
                         return ERROR;
+                     default:
+                     	myTcb = scheduler.getMyTcb();
+                     	return fileSystem.read(myTcb.getFtEnt(param), (byte[])args);
                   }
                   // return FileSystem.read( param, byte args[] );
-                  return ERROR;
+                  //return ERROR;
                case WRITE:
                   switch ( param ) 
 		   {
@@ -172,9 +175,9 @@ public class Kernel
                      case STDERR:
                         System.err.print( (String)args );
                         break;
-		     default:			//write the file from the fd
-			myTcb = scheduler.getMyTcb();
-			return fileSystem.write(myTcb.getFtEnt(param), (byte[])args);
+		     		default:			//write the file from the fd
+						myTcb = scheduler.getMyTcb();
+						return fileSystem.write(myTcb.getFtEnt(param), (byte[])args);
                   }
                   return OK;
                case CREAD:   // to be implemented in assignment 4
@@ -188,21 +191,21 @@ public class Kernel
                   cache.flush( );
                   return OK;
                case OPEN:	//open file and assign filetable entry to threads file descriptor
-		 // SysLib.cerr("Inside kernel.open\n");
-		  myTcb = scheduler.getMyTcb();
-		  if(myTcb != null)
-		  {
-			String[] s = ( String[] ) args;
-			FileTableEntry entry = fileSystem.open( s[0], s[1]);
-			int fd = myTcb.getFd( entry );
-			return fd;
-		  }
-                  return ERROR;    
+		 		// SysLib.cerr("Inside kernel.open\n");
+		  		myTcb = scheduler.getMyTcb();
+				if(myTcb != null)
+				{
+					String[] s = ( String[] ) args;
+					FileTableEntry entry = fileSystem.open( s[0], s[1]);
+					int fd = myTcb.getFd( entry );
+					return fd;
+				}
+                return ERROR;    
                case CLOSE:   //close an open file and update the filetableentry
                   myTcb = scheduler.getMyTcb(); 
                   if (myTcb != null)
                   {
-                     FileTableEntry ftEnt = myTcb.getFtEnt(param);
+                     FileTableEntry ftEnt = myTcb.returnFd(param);
                      if (ftEnt != null)
                      {
                          if (fileSystem.close(ftEnt)) 
