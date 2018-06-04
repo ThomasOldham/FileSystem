@@ -174,7 +174,7 @@ public class Kernel
                         break;
 		     default:			//write the file from the fd
 			myTcb = scheduler.getMyTcb();
-			fileSystem.write(myTcb.getFtEnt(param), (byte[])args);  
+			return fileSystem.write(myTcb.getFtEnt(param), (byte[])args);
                   }
                   return OK;
                case CREAD:   // to be implemented in assignment 4

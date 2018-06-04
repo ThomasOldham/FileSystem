@@ -161,9 +161,11 @@ public class FileSystem {
 			if (MAX_FILE_SIZE - seekPtr < lengthWritten) {
 				lengthWritten = MAX_FILE_SIZE - seekPtr;
 			}
+			SysLib.cerr("\nWriting " + Integer.toString(lengthWritten) + " bytes");
 			for (int i = 0; i < lengthWritten; i++) {
 				contentBlock[(seekPtr + i) % BLOCK_SIZE] = buffer[i];
-				if ((seekPtr + i) % BLOCK_SIZE == 0 && i != buffer.length - 1) {
+				if ((seekPtr + i) % BLOCK_SIZE == BLOCK_SIZE - 1 && i != buffer.length - 1) {
+					SysLib.cerr("\nChanging blocks at i=" + Integer.toString(i));
 					SysLib.cerr("\ncurrent block number for write: " + Integer.toString(blockNumber));
 					SysLib.cwrite(blockNumber, contentBlock);
 					blockIndex++;
@@ -246,6 +248,7 @@ public class FileSystem {
 		}
 		int blocksBefore = neededBlocks(bytesBefore);
 		int blocksAfter = neededBlocks(bytesAfter);
+		SysLib.cerr("\nChanging number of blocks from " + Integer.toString(blocksBefore) + " to " + Integer.toString(blocksAfter));
 		if (blocksBefore == blocksAfter) {
 			return true;
 		}
@@ -255,8 +258,9 @@ public class FileSystem {
 			buffer = new byte[BLOCK_SIZE];
 			SysLib.cread(inode.indirect, buffer);
 		}
-		if (blocksBefore < blocksAfter) {
-			for (int i = blocksBefore; i < blocksAfter; i++) {
+		if (blocksBefore > blocksAfter) {
+			SysLib.cerr("\nDecreasing size...");
+			for (int i = blocksAfter; i < blocksBefore; i++) {
 				deallocateBlock(inode, i, buffer);
 			}
 			if (blocksAfter > DIRECT) {
@@ -264,12 +268,13 @@ public class FileSystem {
 			}
 		}
 		else {
-			assert (blocksAfter < blocksBefore);
-			for (int i = blocksAfter; i < blocksBefore; i++) {
+			assert (blocksAfter > blocksBefore);
+			SysLib.cerr("\nIncreasing size...");
+			for (int i = blocksBefore; i < blocksAfter; i++) {
 				allocateBlock(inode, i, buffer);
 			}
 		}
-		SysLib.cerr("\n Direct pointers after:");
+		SysLib.cerr("\nDirect pointers after:");
 		for (int i = 0; i < DIRECT; i++) {
 			SysLib.cerr(" " + Integer.toString(inode.direct[i]));
 		}
@@ -282,7 +287,9 @@ public class FileSystem {
 	}
 	
 	private void allocateBlock(Inode inode, int blockIndex, byte[] indirectBlock) {
-		setBlockNumber((short)superblock.getBlock(), inode, blockIndex, indirectBlock);
+		short blockNumber = (short)superblock.getBlock();
+		SysLib.cerr("\nPointing index " + Integer.toString(blockIndex) + " to block " + Short.toString(blockNumber));
+		setBlockNumber(blockNumber, inode, blockIndex, indirectBlock);
 	}
 	
 	private static short getBlockNumber(Inode inode, int blockIndex, byte[] indirectBlock) {

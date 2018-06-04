@@ -71,7 +71,7 @@ public class Directory {
       		fnames[inumber][i] = filename.charAt(i);
       	}
 	Inode inode = new Inode(inumber);
-	inode.length = 1;
+	inode.length = 0;
 	inode.flag = 1;
 	inode.toDisk(inumber);
       	return inumber;
