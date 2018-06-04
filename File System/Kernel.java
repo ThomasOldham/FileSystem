@@ -85,6 +85,8 @@ public class Kernel
                   // instantiate synchronized queues
                   ioQueue = new SyncQueue( );
                   waitQueue = new SyncQueue( scheduler.getMaxThreads( ) );
+
+		  fileSystem = new FileSystem(1000);
                   return OK;
                case EXEC:
                   return sysExec( ( String[] )args );
@@ -170,6 +172,9 @@ public class Kernel
                      case STDERR:
                         System.err.print( (String)args );
                         break;
+		     default:			//write the file from the fd
+			myTcb = scheduler.getMyTcb();
+			fileSystem.write(myTcb.getFtEnt(param), (byte[])args);  
                   }
                   return OK;
                case CREAD:   // to be implemented in assignment 4
@@ -182,8 +187,10 @@ public class Kernel
                case CFLUSH:  // to be implemented in assignment 4
                   cache.flush( );
                   return OK;
-               case OPEN:	//open file and assign filetable entry to threads file descriptor    
-		  if(myTcb = scheduler.getMyTcb() != null)
+               case OPEN:	//open file and assign filetable entry to threads file descriptor
+		 // SysLib.cerr("Inside kernel.open\n");
+		  myTcb = scheduler.getMyTcb();
+		  if(myTcb != null)
 		  {
 			String[] s = ( String[] ) args;
 			FileTableEntry entry = fileSystem.open( s[0], s[1]);
@@ -198,7 +205,7 @@ public class Kernel
                      FileTableEntry ftEnt = myTcb.getFtEnt(param);
                      if (ftEnt != null)
                      {
-                         if (fs.close(ftEnt)) 
+                         if (fileSystem.close(ftEnt)) 
                          {
                              return OK; 
                          }
@@ -212,7 +219,7 @@ public class Kernel
                          FileTableEntry ftEnt = myTcb.getFtEnt(param);
                          if (ftEnt != null)
                          {
-                            return fs.fsize(ftEnt); 
+                            return fileSystem.fsize(ftEnt); 
                          }
                   }
 		  return ERROR;
@@ -224,7 +231,7 @@ public class Kernel
                          if (ftEnt != null)
                          {
                             int[] temp = (int[]) args; 
-                            return(fs.seek(ftEnt, temp[0], temp[1]));
+                            return(fileSystem.seek(ftEnt, temp[0], temp[1]));
                          }
                   }
 		  return ERROR;
@@ -238,7 +245,7 @@ public class Kernel
 			return ERROR;
 		  }
                case DELETE:  // delete a file
-                  if (fs.delete((String)args))
+                  if (fileSystem.delete((String)args))
                   {
                      return OK;
                   }
