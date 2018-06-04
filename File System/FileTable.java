@@ -19,6 +19,10 @@ public class FileTable {
       // return a reference to this file (structure) table entry
       
 	  short inumber = dir.namei(filename);
+	  if (inumber < 0) {
+	  	inumber = dir.ialloc(filename);
+	  }
+	  //SysLib.cerr("\n inumber: " + Integer.toString(inumber) + "\n");
 	  Inode inode = new Inode(inumber);
 	  inode.count++;
 	  inode.toDisk(inumber);

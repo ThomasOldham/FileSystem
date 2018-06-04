@@ -11,6 +11,7 @@ public class SysLib {
 	//open file with given name in given mode
 	public static int open(String filename, String mode)
 	{
+		//SysLib.cerr("Inside syslib.open\n");
 		String[] args = new String[2];
 		args[0] = filename;
 		args[1] = mode;
@@ -38,7 +39,7 @@ public class SysLib {
 	//moves seek point for given file. whence determines where to start, offset is from given whence
 	public static int seek(int fd, int offset, int whence)
 	{
-		String[] args = new String[2];
+		int[] args = new int[2];
 		args[0] = offset;
 		args[1] = whence;
 		return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE, Kernel.WRITE, fd, args );
@@ -47,7 +48,7 @@ public class SysLib {
 	//removes given file from disk and file system
 	public static int delete(String filename)
 	{
-		return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE, Kernel.DELETE, 0, fileName);
+		return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE, Kernel.DELETE, 0, filename);
 	}
 	
 	//returns size of given file

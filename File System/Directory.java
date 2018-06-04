@@ -65,12 +65,16 @@ public class Directory {
       	return -1;
       }
       else {
-      	short fid = availableInumbers.pop();
-      	fsize[fid] = filename.length();
-      	for (int i = 0; i < fsize[fid]; i++) {
-      		fnames[fid][i] = filename.charAt(i);
+      	short inumber = availableInumbers.pop();
+      	fsize[inumber] = filename.length();
+      	for (int i = 0; i < fsize[inumber]; i++) {
+      		fnames[inumber][i] = filename.charAt(i);
       	}
-      	return fid;
+	Inode inode = new Inode(inumber);
+	inode.length = 1;
+	inode.flag = 1;
+	inode.toDisk(inumber);
+      	return inumber;
       }
    }
 

@@ -47,11 +47,13 @@ public class TCB {
 
     // added for the file system
     public synchronized int getFd( FileTableEntry entry ) {
+	SysLib.cerr("\nInside getFd");
 	if ( entry == null )
 	    return -1;
 	for ( int i = 3; i < 32; i++ ) {
 	    if ( ftEnt[i] == null ) {
 		ftEnt[i] = entry;
+		SysLib.cerr("\nReturning: " + Integer.toString(i) + " for fd.\n");
 		return i;
 	    }
 	}
